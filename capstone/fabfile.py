@@ -893,7 +893,7 @@ def update_map_numbers():
                 tally[map_id]['reporter_count'] = len(set(tally[map_id]['reporter_list']))
     try:
         snippet = Snippet.objects.get(label=label)
-    except VolumeXML.DoesNotExist:
+    except Snippet.DoesNotExist:
         snippet = Snippet()
         snippet.label=label
         snippet.format="JSON"
