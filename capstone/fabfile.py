@@ -896,7 +896,7 @@ def update_map_numbers():
     except Snippet.DoesNotExist:
         snippet = Snippet()
         snippet.label=label
-        snippet.format="JSON"
+        snippet.format="application/json"
 
     snippet.contents = json.dumps(tally)
     snippet.save()
