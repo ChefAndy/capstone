@@ -1338,7 +1338,8 @@ class Snippet(models.Model):
     """
     contents = models.TextField(null=False, blank=True, help_text="Contents in string, JSON, etc.")
     label = models.CharField(max_length=24, null=False, unique=True, help_text="Label")
-    format = models.CharField(max_length=4, null=False, help_text="Data Format", choices=choices("JSON", "TSV", "TEXT"))
+    format = models.CharField(max_length=128, null=False, help_text="Data Format",
+                              choices=choices("application/json", "text/tab-separated-values", "text/plain"))
 
     def __str__(self):
         return self.label
