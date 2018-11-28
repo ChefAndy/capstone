@@ -1331,7 +1331,7 @@ class Ngram(models.Model):
 
 
 
-class Snippets(models.Model):
+class Snippet(models.Model):
     """
         Data snippets for use on the website. It's just a cache for data that is both static enough, and resource-
         intensive enough to generate that periodic updates would suit it best.
