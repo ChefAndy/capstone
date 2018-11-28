@@ -878,7 +878,7 @@ def update_map_numbers():
         for case in volume.case_metadatas.all():
             if case.jurisdiction:
                 map_id = jurisdictions[case.jurisdiction.slug]['map_id']
-                if not map_id in tally:
+                if map_id not in tally:
                     tally[map_id] = {}
                     tally[map_id]['case_count'] = 0
                     tally[map_id]['volume_count'] = 0
