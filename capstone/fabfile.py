@@ -32,7 +32,7 @@ from capdb.models import VolumeXML, VolumeMetadata, CaseXML, SlowQuery, Jurisdic
 import capdb.tasks as tasks
 from scripts import set_up_postgres, ingest_tt_data, data_migrations, ingest_by_manifest, mass_update, \
     validate_private_volumes as validate_private_volumes_script, compare_alto_case, export, count_chars
-from scripts.helpers import parse_xml, serialize_xml, copy_file, resolve_namespace
+from scripts.helpers import parse_xml, serialize_xml, copy_file, resolve_namespace, volume_barcode_from_folder
 
 
 @task(alias='run')
@@ -235,7 +235,7 @@ def add_test_case(*barcodes):
 
         print("Writing data for", barcode)
 
-        volume_barcode, case_number = barcode.split('_')
+        volume_barcode, case_number = barcode.rsplit('_', 1)
 
         # get volume dir
         source_volume_dirs = list(ingest_storage.iter_files(volume_barcode, partial_path=True))
@@ -290,8 +290,10 @@ def add_test_case(*barcodes):
 
     to_serialize = set()
     user_ids = set()
-    volume_barcodes = [os.path.basename(d).split('_')[0] for d in
-                glob.glob(os.path.join(settings.BASE_DIR, 'test_data/from_vendor/*'))]
+    volume_barcodes = [
+        volume_barcode_from_folder(os.path.basename(d)) for d in
+        glob.glob(os.path.join(settings.BASE_DIR, 'test_data/from_vendor/*'))
+    ]
 
     for volume_barcode in volume_barcodes:
 
@@ -672,7 +674,7 @@ def compress_volumes(*barcodes, storage_name='ingest_storage', max_volumes=10):
             current_vol = next(volumes, "")
             while current_vol:
                 next_vol = next(volumes, "")
-                if current_vol.split("_", 1)[0] != next_vol.split("_", 1)[0]:
+                if volume_barcode_from_folder(current_vol) != volume_barcode_from_folder(next_vol):
                     yield storage_name, current_vol
                 current_vol = next_vol
 
@@ -901,9 +903,97 @@ def update_map_numbers():
     snippet.contents = json.dumps(tally)
     snippet.save()
 
-
-
-
 @task
 def update_snippets():
     update_map_numbers()
+
+
+def ice_volumes(scope='all', dry_run='true'):
+    """
+    For each captar'd volume that validated OK, tag the matching objects
+    in the shared or private bucket for transfer to glacier and delete matching
+    objects from the transfer bucket.
+
+    Set dry_run to 'false' to run in earnest.
+    """
+    from capdb.storages import captar_storage
+    from scripts.ice_volumes import recursively_tag
+    from scripts.helpers import storage_lookup
+
+    from tqdm import tqdm
+
+    print("Preparing validation hash...")
+    # validation paths look like 'validation/redacted/barcode[_datetime].txt'
+    validation = {}
+    for validation_path in tqdm(captar_storage.iter_files_recursive(path='validation/')):
+        if validation_path.endswith('.txt'):
+            validation_folder = validation_path.split('/')[2][:-4]
+            if scope == 'all' or scope in validation_folder:
+                validation[validation_folder] = False
+                result = json.loads(captar_storage.contents(validation_path))
+                if result[0] == "ok":
+                    validation[validation_folder] = True
+    print("Done.")
+
+    # iterate through volumes in both storages, in reverse order,
+    # alphabetically, tracking current barcode and tagging matching
+    # volumes once a valid CAPTAR has been seen
+    for storage_name in ['ingest_storage', 'private_ingest_storage']:
+        print("Checking %s..." % storage_name)
+        storage = storage_lookup[storage_name][0]
+        last_barcode = None
+        valid = False
+        # volume paths look like 'barcode_[un]redacted/' or 'barcode_[un]redacted_datetime/'
+        for volume_path in tqdm(reversed(list(storage.iter_files()))):
+            barcode = volume_barcode_from_folder(volume_path)
+            if barcode != last_barcode:
+                last_barcode = barcode
+                valid = False
+            elif valid:
+                # tag this volume and go on to the next
+                if scope == 'all' or scope in volume_path:
+                    recursively_tag.delay(storage_name, volume_path, dry_run=dry_run)
+                continue
+            else:
+                pass
+            try:
+                if validation[volume_path.rstrip('/')]:
+                    # tag this and all until barcode changes
+                    if scope == 'all' or scope in volume_path:
+                        recursively_tag.delay(storage_name, volume_path, dry_run=dry_run)
+                    valid = True
+            except KeyError:
+                # we don't have a validation
+                pass
+
+
+@task
+def sample_captar_images(output_folder='samples'):
+    """
+        Extract 100th image from each captar volume and store in captar_storage/samples.
+    """
+    from capdb.storages import CaptarStorage, captar_storage
+    from io import BytesIO
+    import random
+
+    print("Getting list of existing sampled volumes to skip.")
+    existing_barcodes = set(i.split('/', 1)[1].rsplit('_', 2)[0] for i in captar_storage.iter_files_recursive(output_folder))
+
+    for folder in ('redacted', 'unredacted'):
+        volume_folders = list(captar_storage.iter_files(folder))
+        random.shuffle(volume_folders)
+        for volume_folder in volume_folders:
+            if volume_barcode_from_folder(volume_folder) in existing_barcodes:
+                print("Skipping %s, already exists" % volume_folder)
+                continue
+            print("Checking %s" % volume_folder)
+            volume_storage = CaptarStorage(captar_storage, volume_folder)
+            images = sorted(i for i in volume_storage.iter_files('images') if i.endswith('.jpg'))
+            if images:
+                image = images[:100][-1]
+                out_path = str(Path(output_folder, folder, Path(image).name))
+                print("- Saving %s" % out_path)
+                captar_storage.save(
+                    out_path,
+                    BytesIO(volume_storage.contents(image, 'rb'))  # passing file handle directly doesn't work because S3 storage strips file wrappers
+                )
