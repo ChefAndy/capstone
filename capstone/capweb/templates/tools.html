@@ -47,7 +47,7 @@
     </p>
     <ul>
       <li><a href="{% api_url "api-root" %}">Browse the API</a></li>
-      <li><a href="{% url "api" %}">API docs</a></li>
+      <li><a href="{% url "api" %}">API Documentation</a></li>
     </ul>
   </div>
 
@@ -62,7 +62,22 @@
       research scholars.
     </p>
     <ul>
-      <li><a href="{% url "bulk-docs" %}">Bulk file documentation</a></li>
+      <li><a href="{% url "bulk-docs" %}">Bulk File Documentation</a></li>
+    </ul>
+  </div>
+
+  {# ==============> SEARCH <============== #}
+  <div class="page-section">
+    <h2 class="subtitle" id="api">
+      <a href="{% url "search" %}">Search</a>
+    </h2>
+    <p>
+        Our search interface offers access to all of the same cases and most of our metadata with an intuitive,
+        flexible interface.
+    </p>
+    <ul>
+      <li><a href="{% url "search" %}">Search for Cases</a></li>
+      <li><a href="{% url 'search-docs' %}">Search Tool Documentation</a></li>
     </ul>
   </div>
 {% endblock %}
