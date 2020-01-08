@@ -10,6 +10,17 @@
                  :urls="urls"
                  :choices="choices">
     </search-form>
+    <div class="sort_buttons" data-toggle="buttons" role="group">
+      <label class="btn btn-secondary active">
+        <input :v-model="sort" name="sort" type="radio" value="relevance"> Most Relevant First
+      </label>
+      <label class="btn btn-secondary">
+        <input :v-model="sort" name="sort" type="radio" value="-decision_date"> Newest Decisions First
+      </label>
+      <label class="btn btn-secondary">
+        <input :v-model="sort" name="sort" type="radio" value="decision_date"> Oldest Decisions First
+      </label>
+    </div>
     <result-list v-on:see-cases="seeCases"
                  v-on:next-page="nextPage"
                  v-on:prev-page="prevPage"
@@ -70,7 +81,8 @@
         first_page: true,
         field_errors: {},
         search_error: null,
-        sort: ''
+        sort: '',
+        default_sort: '-decision_date',
       }
     },
     methods: {
@@ -83,6 +95,10 @@
         const queryKeys = Object.keys(query).filter(key => !ignoreKeys[key]);
         queryKeys.sort();
         return route.params.endpoint + '|' + queryKeys.map(key => `${key}:${query[key]}`).join('|');
+      },
+      handleSortUpdate(doom) {
+        console.log(doom.value); // eslint-disable-line
+        this.handleRouteUpdate(this.$route);
       },
       handleRouteUpdate(route, oldRoute) {
         /*
@@ -100,7 +116,12 @@
           this.resetResults();
           this.endpoint = route.params.endpoint;
 
-          this.sort = route.query.hasOwnProperty('sort') ? route.query.sort : '';
+          // handle the sorting field— only works on elasticsearch-backed endpoints, which is only cases right now
+          if (this.endpoint == 'cases') {
+            this.sort = route.query.hasOwnProperty('sort') ? route.query.sort : this.default_sort;
+          } else {
+            this.sort = '';
+          }
 
           // load search fields and values from query params
           let fields = [];
