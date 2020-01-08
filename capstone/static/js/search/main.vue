@@ -69,7 +69,8 @@
         last_page: true,
         first_page: true,
         field_errors: {},
-        search_error: null
+        search_error: null,
+        sort: ''
       }
     },
     methods: {
@@ -296,8 +297,13 @@
         const params = {
           page_size: this.page_size,
         };
+
         if (this.cursors[this.page]) {
           params.cursor = this.cursors[this.page];
+        }
+
+        if (this.sort !== '' && this.endpoint === 'cases') {
+          params.ordering = this.sort;
         }
 
         // build the query parameters using the form fields
