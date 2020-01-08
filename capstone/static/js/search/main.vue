@@ -100,6 +100,8 @@
           this.resetResults();
           this.endpoint = route.params.endpoint;
 
+          this.sort = route.query.hasOwnProperty('sort') ? route.query.sort : '';
+
           // load search fields and values from query params
           let fields = [];
           let blankFields = searchform.endpoints[this.endpoint];
@@ -188,6 +190,7 @@
         const currentFetchID = Math.random();
         this.currentFetchID = currentFetchID;
         this.showLoading = true;
+
         return fetch(query_url)
           .then((response)=>{
             if (currentFetchID !== this.currentFetchID) { throw "canceled" }
