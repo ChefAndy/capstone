@@ -10,7 +10,7 @@
                  :urls="urls"
                  :choices="choices">
     </search-form>
-    <div class="sort_buttons" data-toggle="buttons" role="group">
+    <div v-if="endpoint == 'cases' && results.length > 0" class="sort_buttons" data-toggle="buttons" role="group">
       <label class="btn btn-secondary active">
         <input :v-model="sort" name="sort" type="radio" value="relevance"> Most Relevant First
       </label>
