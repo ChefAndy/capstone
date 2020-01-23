@@ -232,6 +232,11 @@
               value: "",
               label: "Jurisdiction",
               choices: 'jurisdiction',
+            },
+            {
+              name: "sort",
+              value: "",
+              label: "Sort",
             }
           ],
           courts: [

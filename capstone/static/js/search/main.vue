@@ -12,15 +12,16 @@
     </search-form>
     <div v-if="endpoint == 'cases' && results.length > 0" class="sort_buttons" data-toggle="buttons" role="group">
       <label class="btn btn-secondary active">
-        <input :v-model="sort" name="sort" type="radio" value="relevance"> Most Relevant First
+        <input v-model="sort" name="sort" type="radio" id="relevance" value="relevance" @change="handleSortUpdate"> Most Relevant First
       </label>
       <label class="btn btn-secondary">
-        <input :v-model="sort" name="sort" type="radio" value="-decision_date"> Newest Decisions First
+        <input v-model="sort" name="sort" type="radio" id="-decision_date" value="-decision_date" @change="handleSortUpdate"> Newest Decisions First
       </label>
       <label class="btn btn-secondary">
-        <input :v-model="sort" name="sort" type="radio" value="decision_date"> Oldest Decisions First
+        <input v-model="sort" name="sort" type="radio" id="decision_date" value="decision_date" @change="handleSortUpdate"> Oldest Decisions First
       </label>
     </div>
+
     <result-list v-on:see-cases="seeCases"
                  v-on:next-page="nextPage"
                  v-on:prev-page="prevPage"
@@ -82,7 +83,7 @@
         field_errors: {},
         search_error: null,
         sort: '',
-        default_sort: '-decision_date',
+        default_sort: 'relevance',
       }
     },
     methods: {
@@ -96,8 +97,14 @@
         queryKeys.sort();
         return route.params.endpoint + '|' + queryKeys.map(key => `${key}:${query[key]}`).join('|');
       },
-      handleSortUpdate(doom) {
-        console.log(doom.value); // eslint-disable-line
+      handleSortUpdate() {
+        let query = this.$route.query
+        query.sort = this.sort
+        this.$router.push({
+          name: 'endpoint',
+          params: this.$route.params,
+          query: query,
+        });
         this.handleRouteUpdate(this.$route);
       },
       handleRouteUpdate(route, oldRoute) {
@@ -118,7 +125,9 @@
 
           // handle the sorting field— only works on elasticsearch-backed endpoints, which is only cases right now
           if (this.endpoint == 'cases') {
-            this.sort = route.query.hasOwnProperty('sort') ? route.query.sort : this.default_sort;
+              if (!this.sort) {
+                this.sort = query.hasOwnProperty('sort') ? query.sort : this.default_sort;
+              }
           } else {
             this.sort = '';
           }
@@ -179,10 +188,15 @@
           if (field.value)
             query[field.name] = field.value;
 
+        let query_params = { endpoint: this.endpoint };
+
+        if (this.endpoint == 'cases')
+          query_params['sort'] = this.sort;
+
         // push new route
         this.$router.push({
           name: 'endpoint',
-          params: { endpoint: this.endpoint },
+          params: query_params,
           query: query,
         });
       },
